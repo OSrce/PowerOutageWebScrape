@@ -1,0 +1,26 @@
+
+
+
+CRON JOB THAT GETS CALLED EVERY MIN.
+
+layer_id = 2013
+
+1. CHECK FOR LAST_DATA_TIMESTAMP IF EXISTS.
+
+2. SUBMIT REQUEST FOR CURRENT_DATA_TIMESTAMP
+
+-- IF LAST_DATA_TIMESTAMP != CURRENT_DATA_TIMESTAMP :
+   
+3. Mark all open events in sr_layer_dynamic_data with layer_id=2013 CLOSE current_timestamp.
+
+4. iterate through each line of coned_url_list and perform:
+	a) CURL
+  b) process line
+	c) insert into DB
+ 
+5. UPDATE LAST_DATA_TIMESTAMP.
+
+
+
+
+

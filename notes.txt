@@ -1,0 +1,19 @@
+
+
+
+The Steps :
+
+1. GET http://apps.coned.com/stormcenter_external/stormcenter_externaldata/data/interval_generation_data/metadata.xml?timestamp=00000001
+AND parse to get the latest directory.
+
+2. Build theList.txt by calling test.html and putting results in theList.txt
+
+3. Call theCmd.sh from data dir.
+
+4. Call processConEd.pl
+
+5. Insert resulting data into db table.
+
+
+
+
