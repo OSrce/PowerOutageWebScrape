@@ -12,7 +12,7 @@ open LOGFILE, ">>", $logFile or die "Couldnt Open LogFile!\n".$!;
 my $configfile = "scrapeConEd.config";
 open CONFIGFILE, "+<", $configfile or die "NEED TO CONFIGURE scrapeConEd.config!\n".$!;
 my $dbh;
-my $layer_id;
+my $group_id;
 my @conedArr;
 my $last_data_timestamp;
 my $current_data_timestamp;
@@ -20,17 +20,17 @@ my $current_data_timestamp;
 print LOGFILE "Starting scrapeConEd @ ".localtime."\n";
 
 while( my $line = <CONFIGFILE> ) {
-	if( $line =~ /LAYER_ID=(\d+)/ ) {
-		$layer_id = $1;
+	if( $line =~ /GROUP_ID=(\d+)/ ) {
+		$group_id = $1;
 	} elsif( $line =~ /LAST_DATA_TIMESTAMP=(\w+)/ ) {
 		$last_data_timestamp = $1;
 	}
 }
-if( ! defined($layer_id) ) {
-	print LOGFILE "NEED TO SET : LAYER_ID=#### IN CONFIG FILE!\n";
+if( ! defined($group_id) ) {
+	print LOGFILE "NEED TO SET : GROUP_ID=#### IN CONFIG FILE!\n";
 	exit(-1);
 } else {
-	print LOGFILE "LAYER_ID = $layer_id \n";
+	print LOGFILE "GROUP_ID = $group_id \n";
 }
 if( ! defined($last_data_timestamp) ) {
 	print LOGFILE "NO EXISTING LAST_DATA_TIMESTAMP FOUND!\n";
@@ -61,7 +61,7 @@ if ($retcode == 0) {
 
 		seek(CONFIGFILE, 0, 0)               or die "can't seek to start of $configfile: $!";
 		print CONFIGFILE "#scrapeConEd CONFIG FILE\n"                or die "can't print to $configfile: $!";
-		print CONFIGFILE "LAYER_ID=$layer_id\n"                or die "can't print to $configfile: $!";
+		print CONFIGFILE "GROUP_ID=$group_id\n"                or die "can't print to $configfile: $!";
 		print CONFIGFILE "LAST_DATA_TIMESTAMP=$current_data_timestamp\n"                or die "can't print to $configfile: $!";
 		truncate(CONFIGFILE, tell(CONFIGFILE))        or die "can't truncate $configfile: $!";
 
@@ -91,10 +91,11 @@ if( $current_data_timestamp =~ /(\d\d\d\d)_(\d\d)_(\d\d)_(\d\d)_(\d\d)_(\d\d)/ )
 ### THE NEW DATA.
 
 # connect to database
-$dbh = DBI->connect("DBI:Pg:dbname=sr_data;host=localhost", "sitrepadmin", "", {'RaiseError' => 1});
+$dbh = DBI->connect("DBI:Pg:dbname=sitrep;host=localhost", "sitrepadmin", "", {'RaiseError' => 1});
 
-#UPDATE ALL ROWS FOR LAYER_ID THAT feature_end=NULL
-my $updateStr = "UPDATE sr_layer_dynamic_data set feature_end='$currentDataTimeDB' WHERE layer_id=$layer_id AND feature_end IS NULL";
+#UPDATE ALL ROWS FOR GROUP_ID THAT feature_end=NULL
+#my $updateStr = "UPDATE event SET data_end='$currentDataTimeDB' WHERE group_id=$group_id AND has_end=false";
+my $updateStr = "UPDATE event SET data_end='$currentDataTimeDB' WHERE group_id=$group_id AND has_end=false";
 #print "TEST=$updateStr\n";
 my $rows = $dbh->do($updateStr);
 
@@ -145,10 +146,20 @@ print LOGFILE "Customers Affected\tEstimated Time of Restoration\tCause of Outag
 foreach my $matchArr (@conedArr) {
 	print LOGFILE ${$matchArr}[0]."\t".${$matchArr}[1]."\t".${$matchArr}[2] ."\t".${$matchArr}[3] ."\t".${$matchArr}[4]." URL=".${$matchArr}[5]."\n";
 
-#INSERT EACH ROW
-my $insertStr = "INSERT INTO sr_layer_dynamic_data (layer_id, feature_data, feature_start, sr_geom) VALUES ( $layer_id, '{\"CustomersAffected\":".${$matchArr}[0].", \"EstTimeOfRest\":\"".${$matchArr}[1]."\", \"CauseOfOutage\" :\"".${$matchArr}[2]."\" }', '$currentDataTimeDB', ST_SetSRID(ST_MakePoint(".${$matchArr}[4].",".${$matchArr}[3].",0),4326) )";
-#print LOGFILE "INSERT_STMT=$insertStr\n";
-my $rows = $dbh->do($insertStr);
+
+	#INSERT EACH ROW INTO location
+	my $insertStr = "INSERT INTO location (source, geometry) VALUES ( 7,  ST_SetSRID(ST_MakePoint(".${$matchArr}[4].",".${$matchArr}[3].",0),4326) ) RETURNING id";
+#	my $rows = $dbh->do($insertStr);
+	my $insert_handle = $dbh->prepare($insertStr);
+	$insert_handle->execute();
+	my $locid = $insert_handle->fetch()->[0];
+	$insert_handle->finish();
+
+	#INSERT EACH ROW INTO event
+	$insertStr = "INSERT INTO event (group_id, data, data_begin, location) VALUES ( $group_id, '\"CustomersAffected\"=>".${$matchArr}[0].", \"EstTimeOfRest\"=>\"".${$matchArr}[1]."\", \"CauseOfOutage\" =>\"".${$matchArr}[2]."\"'::hstore, '$currentDataTimeDB', $locid )";
+	#print LOGFILE "INSERT_STMT=$insertStr\n";
+	my $rows = $dbh->do($insertStr);
+
 
 
 
