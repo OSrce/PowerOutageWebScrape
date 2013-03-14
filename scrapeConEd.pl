@@ -5,6 +5,8 @@ use warnings;
 use WWW::Curl::Easy;
 use DBI;
 use POSIX qw/strftime/;
+use Time::HiRes qw(usleep nanosleep);
+
 
 my $logFile = "/var/log/srd/scrapeConEd.log";
 open LOGFILE, ">>", $logFile or die "Couldnt Open LogFile!\n".$!;
@@ -93,13 +95,6 @@ if( $current_data_timestamp =~ /(\d\d\d\d)_(\d\d)_(\d\d)_(\d\d)_(\d\d)_(\d\d)/ )
 # connect to database
 $dbh = DBI->connect("DBI:Pg:dbname=sitrep;host=localhost", "sitrepadmin", "", {'RaiseError' => 1});
 
-#UPDATE ALL ROWS FOR GROUP_ID THAT feature_end=NULL
-#my $updateStr = "UPDATE event SET data_end='$currentDataTimeDB' WHERE group_id=$group_id AND has_end=false";
-my $updateStr = "UPDATE event SET data_end='$currentDataTimeDB' WHERE group_id=$group_id AND has_end=false";
-#print "TEST=$updateStr\n";
-my $rows = $dbh->do($updateStr);
-
-
 
 ####### NOW PROCESS EACH URL from coned_url_list with current_data_timestamp ###
 
@@ -117,19 +112,21 @@ my $lineCount = 0;
 foreach my $url (@urls) {
 	$lineCount++;
 	if($lineCount % 100 == 0) {
-#		print "RETRIEVING URL # $lineCount of ".scalar (@urls)."\n";
+		print LOGFILE "RETRIEVING URL # $lineCount of ".scalar (@urls)."\n";
 	}
-#	print "URL:".$url."\n";
+	print LOGFILE "URL:".$url."\n";
 	$curl->setopt(CURLOPT_URL, $url);
 	$curl->setopt(CURLOPT_FAILONERROR,1);
 	my $response_body = "";
 	$curl->setopt(CURLOPT_WRITEDATA,\$response_body);
 	my $retcode = $curl->perform;
 
+#		print LOGFILE "RETCODE====$retcode\n";
+#		print LOGFILE "TEST=$response_body";
 	# Looking at the results...
 	if ($retcode == 0) {
-#		print("Transfer went ok\n");
-#		print "TEST=$response_body";
+		print LOGFILE "Transfer of url went ok! URL= $url\n";
+#		print LOGFILE "TEST=$response_body";
 #		push @conedArr, [$1, $2, $3, $4, $5] while $response_body =~ /"cust_a":"(\d+)","etr":"([^"]+)","cause":"([^"]+)"\}\],"geom":\[\{"p":\[([^,]+),([^\]]+)\]/g;
 		push @conedArr, [$1, $2, $3, $4, $5, $url] while $response_body =~ /"cust_a":"(\d+)","etr":"([^"]+)","cause":"([^"]+)"\}\],"geom":\[\{"p":\[([^,]+),([^\]]+)\]/g;
 	}
@@ -139,7 +136,17 @@ foreach my $url (@urls) {
 #		push @conedArr, [$1, $2, $3, $4, $5] while $line =~ /"cust_a":"(\d+)","etr":"([^"]+)","cause":"([^"]+)"\}\],"geom":\[\{"p":\[([^,]+),([^\]]+)\]/g;
 #	}
 #	close INFILE;
+
+	usleep(200000);	
 }
+
+
+
+#UPDATE ALL ROWS FOR GROUP_ID THAT feature_end=NULL
+#my $updateStr = "UPDATE event SET data_end='$currentDataTimeDB' WHERE group_id=$group_id AND has_end=false";
+my $updateStr = "UPDATE event SET data_end='$currentDataTimeDB' WHERE group_id=$group_id AND has_end=false";
+#print "TEST=$updateStr\n";
+my $rows = $dbh->do($updateStr);
 
 
 print LOGFILE "Customers Affected\tEstimated Time of Restoration\tCause of Outage\tLat\tLon\n";

@@ -1,6 +1,15 @@
 #!/usr/bin/perl
 use DBI;
 
+use Time::HiRes qw(usleep nanosleep);
+
+
+while(1) {
+	print "test\n";
+  usleep(200000);
+
+}
+
 
 my $dbh;
 $dbh = DBI->connect("DBI:Pg:dbname=sitrep;host=localhost", "sitrepadmin", "", {'RaiseError' => 1});
