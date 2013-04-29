@@ -112,9 +112,9 @@ my $lineCount = 0;
 foreach my $url (@urls) {
 	$lineCount++;
 	if($lineCount % 100 == 0) {
-		print LOGFILE "RETRIEVING URL # $lineCount of ".scalar (@urls)."\n";
+		print LOGFILE "PROGRESS AT:".localtime." RETRIEVING URL # $lineCount of ".scalar (@urls)."\n";
+		print LOGFILE "URL:".$url."\n";
 	}
-	print LOGFILE "URL:".$url."\n";
 	$curl->setopt(CURLOPT_URL, $url);
 	$curl->setopt(CURLOPT_FAILONERROR,1);
 	my $response_body = "";
